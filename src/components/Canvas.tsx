@@ -20,58 +20,59 @@ const Canvas = (props:CanvasProps) => {
   const { ...rest } = props
   const canvasRef = useRef<HTMLCanvasElement>(null)
 
-  // previousClick is used to track the initial position of the line
-  const [previousClick, _setPreviousClick] = useState<null | Position>(null);
-  const previousClickRef = useRef(previousClick)
-  const setPreviousClick = (position: null | Position) => {
-    previousClickRef.current = position
-    _setPreviousClick(position);
+  // lineStart is used to track the start position of the current line
+  const [_lineStart, _setLineStart] = useState<null | Position>(null);
+  const lineStartRef = useRef(_lineStart)
+  const setLineStart = (position: null | Position) => {
+    lineStartRef.current = position
+    _setLineStart(position);
   }
 
-  // currentPosition is used to plot an active line using the previousClick position on the canvas to guide the user on how the line will look like
-  const [currentPosition, _setCurrentPosition] = useState<null | Position>(null);
-  const currentPositionRef = useRef(currentPosition)
-  const setCurrentPosition = (position: null | Position) => {
-    currentPositionRef.current = position
-    _setCurrentPosition(position);
+  // lineEnd is used to track the end position of the current line
+  const [_lineEnd, _setLineEnd] = useState<null | Position>(null);
+  const lineEndRef = useRef(_lineEnd)
+  const setLineEnd = (position: null | Position) => {
+    lineEndRef.current = position
+    _setLineEnd(position);
   }
 
   // lines is used to track all the lines that user has drawn
-  const [lines, _setLines] = useState<Array<Line>>([]);
-  const linesRef = useRef(lines)
+  const [_lines, _setLines] = useState<Array<Line>>([]);
+  const linesRef = useRef(_lines)
   const setLines = (line:Array<Line>) => {
     linesRef.current = line
     _setLines(line);
   }
 
-  const handleMouseMove = (x:number, y:number) => {
-    const prevClick = previousClickRef.current
-
-    if (prevClick) {
-      setCurrentPosition({x,y})
+  // Active line is the current line where user is drawing and has yet to set the line end.
+  // This function draws an active line on the canvas to give the user an idea of how the line looks like.
+  const drawActiveLine = (x:number, y:number) => {
+    if (lineStartRef.current) {
+      setLineEnd({x,y})
       drawLines()
     }
   }
 
-  // Check if there's a previousClick, if so setLine and drawLine, if not setPreviousClick
   const handleClick = (x:number, y:number) => {
-    const prevClick = previousClickRef.current
+    const lineStart = lineStartRef.current
 
-    if (!prevClick) {
-      setPreviousClick({x,y})
+    // This handles the case when a user just started drawing a line. Store the line start position
+    if (!lineStart) {
+      setLineStart({x,y})
       return
     }
 
-    if (prevClick) {
+    // This handles the case when a user completed drawing a line. Store the newly completed line and draw the lines on the canvas
+    if (lineStart) {
       const currLines = linesRef.current
       currLines.push({
-        startX: prevClick.x,
-        startY: prevClick.y,
+        startX: lineStart.x,
+        startY: lineStart.y,
         endX: x,
         endY: y
       })
       setLines(currLines)
-      setPreviousClick(null)
+      setLineStart(null)
       drawLines()
       return
     }
@@ -87,8 +88,8 @@ const Canvas = (props:CanvasProps) => {
     ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height)
 
     setLines([])
-    setPreviousClick(null)
-    setCurrentPosition(null)
+    setLineStart(null)
+    setLineEnd(null)
   }
 
   const drawLines = () => {
@@ -112,11 +113,11 @@ const Canvas = (props:CanvasProps) => {
     }
 
     // Check if there's an active line, if so, draw on the canvas
-    const prevClick = previousClickRef.current
-    const currentPos = currentPositionRef.current
-    if (prevClick && currentPos) {
-      ctx.moveTo(prevClick.x,prevClick.y)
-      ctx.lineTo(currentPos.x,currentPos.y)
+    const lineStart = lineStartRef.current
+    const lineEnd = lineEndRef.current
+    if (lineStart && lineEnd) {
+      ctx.moveTo(lineStart.x,lineStart.y)
+      ctx.lineTo(lineEnd.x,lineEnd.y)
       ctx.stroke()
     }
   }
@@ -125,7 +126,7 @@ const Canvas = (props:CanvasProps) => {
     const canvas = canvasRef.current
     if (canvas) {  
       canvas.addEventListener("mousemove", function (e) {
-        handleMouseMove(e.clientX,e.clientY)
+        drawActiveLine(e.clientX,e.clientY)
       }, false);
 
       canvas.addEventListener("mouseup", function (e) {
