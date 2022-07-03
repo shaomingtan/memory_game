@@ -26,6 +26,8 @@ type Line = {
   endY: number
 }
 
+type WordTypes = 'english' | 'french'
+
 enum WordType {
   ENGLISH= 'english',
   FRENCH= 'french'
@@ -95,6 +97,20 @@ const Canvas = (props:CanvasProps) => {
 
   const getFrenchWordByIndex = (index:number) => {
     return Object.values(wordsMapping)[index]
+  }
+
+  const alreadySelected = (word: string, wordType: WordTypes) => {
+    const currentWordPairings = selectedWordPairingsRef.current    
+    // Check if english word has been selected
+    if (wordType === WordType.ENGLISH && currentWordPairings[word] !== null) {
+      return true
+    }
+
+    // Check if french word has been selected
+    if (wordType === WordType.FRENCH && Object.values(currentWordPairings).includes(word)) {
+      return true
+    }
+    return false
   }
 
   // Check if mouse click is within a box region and returns the identifier of the box
@@ -199,9 +215,19 @@ const Canvas = (props:CanvasProps) => {
     // This handles the case when a user just started drawing a line. Store the line start position
     if (!lineStart) {
       if (clickedBoxResult.wordType === WordType.ENGLISH) {
-        setSelectedEnglishWord(getEnglishWordByIndex(clickedBoxResult.wordIndex))
+        const currentEnglishWord = getEnglishWordByIndex(clickedBoxResult.wordIndex)
+        if (currentEnglishWord && !alreadySelected(currentEnglishWord, WordType.ENGLISH)) {
+          setSelectedEnglishWord(currentEnglishWord)
+        } else {
+          return
+        }
       } else if (clickedBoxResult.wordType === WordType.FRENCH) {
-        setSelectedFrenchWord(getFrenchWordByIndex(clickedBoxResult.wordIndex))
+        const currentFrenchWord = getFrenchWordByIndex(clickedBoxResult.wordIndex)
+        if (currentFrenchWord && !alreadySelected(currentFrenchWord, WordType.FRENCH)) {
+          setSelectedFrenchWord(currentFrenchWord)
+        } else {
+          return
+        }
       }
       setLineStart({x: clickedBoxResult.xPosition, y: clickedBoxResult.yPosition})
       return
@@ -212,12 +238,14 @@ const Canvas = (props:CanvasProps) => {
       // Validation: Handle scenario where user selected 2 english words
       if (selectedEnglishWordRef.current && clickedBoxResult.wordType === WordType.ENGLISH) {
         // TODO Show some meaningful prompt to the user that they should select a french word next
+        console.log("Debug: 2 english words were chosen")
         return
       }
 
       // Validation: Handle scenario where user selected 2 french words
       if (selectedFrenchWordRef.current && clickedBoxResult.wordType === WordType.FRENCH) {
         // TODO Show some meaningful prompt to the user that they should select an english word next
+        console.log("Debug: 2 french words were chosen")
         return
       }
 
@@ -234,15 +262,17 @@ const Canvas = (props:CanvasProps) => {
 
       const currentWordPairings = selectedWordPairingsRef.current
       if (currentEnglishWord && currentFrenchWord) {
-        // Validation: Handle scenario where selected english word has already been paired with another french word
-        if (currentWordPairings[currentEnglishWord] !== null) {
+        // Validation: Handle scenario where english word has already been selected
+        if (alreadySelected(currentEnglishWord, WordType.ENGLISH)) {
           // TODO return a meaningful prompt to user
+          console.log("Debug: English word already selected")
           return
         }
 
-        // Validation: Handle scenario where selected french word has already been paired with another english word
-        if (Object.values(currentWordPairings).includes(currentFrenchWord)) {
+        // Validation: Handle scenario where selected french word has selected
+        if (alreadySelected(currentFrenchWord, WordType.FRENCH)) {
           // TODO return a meaningful prompt to user
+          console.log("Debug: French word already selected")
           return
         }
         currentWordPairings[currentEnglishWord] = currentFrenchWord
