@@ -36,6 +36,7 @@ type HasClickedBoxResult = false | {
   wordType: WordType
   wordIndex: number
 }
+
 const Canvas = (props:CanvasProps) => {
   const { wordsMapping, ...rest } = props
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -64,7 +65,36 @@ const Canvas = (props:CanvasProps) => {
     _setLines(line);
   }
 
+  const [_selectedEnglishWord, _setSelectedEnglishWord] = useState<null | string>(null);
+  const selectedEnglishWordRef = useRef(_selectedEnglishWord)
+  const setSelectedEnglishWord = (word: null | string) => {
+    selectedEnglishWordRef.current = word
+    _setSelectedEnglishWord(word);
+  }
+
+  const [_selectedFrenchWord, _setSelectedFrenchWord] = useState<null | string>(null);
+  const selectedFrenchWordRef = useRef(_selectedFrenchWord)
+  const setSelectedFrenchWord = (word: null | string) => {
+    selectedFrenchWordRef.current = word
+    _setSelectedFrenchWord(word);
+  }
+
+  const [_selectedWordPairings, _setSelectedWordPairings] = useState<WordMapping>({});
+  const selectedWordPairingsRef = useRef(_selectedWordPairings)
+  const setSelectedWordPairings = (wordPairing: WordMapping) => {
+    selectedWordPairingsRef.current = wordPairing
+    _setSelectedWordPairings(wordPairing);
+  }
+
   const canvasHeight = Object.keys(wordsMapping).length * WORD_HEIGHT
+
+  const getEnglishWordByIndex = (index:number) => {
+    return Object.keys(wordsMapping)[index]
+  }
+
+  const getFrenchWordByIndex = (index:number) => {
+    return Object.values(wordsMapping)[index]
+  }
 
   // Check if mouse click is within a box region and returns the identifier of the box
   const hasClickedBox = (x:number, y:number):HasClickedBoxResult => {
@@ -155,26 +185,78 @@ const Canvas = (props:CanvasProps) => {
   const handleClick = (x:number, y:number) => {
     const lineStart = lineStartRef.current
 
-    const result = hasClickedBox(x, y)
-    console.log("hasClickedBox", result)
+    const clickedBoxResult = hasClickedBox(x, y)
+    // Dont handle if a box was not clicked
+    if (!clickedBoxResult) {
+      return
+    }
+
     // This handles the case when a user just started drawing a line. Store the line start position
     if (!lineStart) {
-      setLineStart({x,y})
+      if (clickedBoxResult.wordType === WordType.ENGLISH) {
+        setSelectedEnglishWord(getEnglishWordByIndex(clickedBoxResult.wordIndex))
+      } else if (clickedBoxResult.wordType === WordType.FRENCH) {
+        setSelectedFrenchWord(getFrenchWordByIndex(clickedBoxResult.wordIndex))
+      }
+      setLineStart({x: clickedBoxResult.xPosition, y: clickedBoxResult.yPosition})
       return
     }
 
     // This handles the case when a user completed drawing a line. Store the newly completed line and draw the lines on the canvas
     if (lineStart) {
+      // Validation: Handle scenario where user selected 2 english words
+      if (selectedEnglishWordRef.current && clickedBoxResult.wordType === WordType.ENGLISH) {
+        // TODO Show some meaningful prompt to the user that they should select a french word next
+        return
+      }
+
+      // Validation: Handle scenario where user selected 2 french words
+      if (selectedFrenchWordRef.current && clickedBoxResult.wordType === WordType.FRENCH) {
+        // TODO Show some meaningful prompt to the user that they should select an english word next
+        return
+      }
+
+      // Get current selected english and french word
+      let currentEnglishWord
+      let currentFrenchWord
+      if (clickedBoxResult.wordType === WordType.FRENCH) {
+        currentEnglishWord = selectedEnglishWordRef.current
+        currentFrenchWord = getFrenchWordByIndex(clickedBoxResult.wordIndex)
+      } else {
+        currentEnglishWord = getEnglishWordByIndex(clickedBoxResult.wordIndex)
+        currentFrenchWord = selectedFrenchWordRef.current
+      }
+
+      const currentWordPairings = selectedWordPairingsRef.current
+      if (currentEnglishWord && currentFrenchWord) {
+        // Validation: Handle scenario where selected english word has already been paired with another french word
+        if (currentWordPairings[currentEnglishWord] !== null) {
+          // TODO return a meaningful prompt to user
+          return
+        }
+
+        // Validation: Handle scenario where selected french word has already been paired with another english word
+        if (Object.values(currentWordPairings).includes(currentFrenchWord)) {
+          // TODO return a meaningful prompt to user
+          return
+        }
+        currentWordPairings[currentEnglishWord] = currentFrenchWord
+        setSelectedWordPairings(currentWordPairings)
+      }
+
+      // Draw pairing on canvas
       const currLines = linesRef.current
       currLines.push({
         startX: lineStart.x,
         startY: lineStart.y,
-        endX: x,
-        endY: y
+        endX: clickedBoxResult.xPosition,
+        endY: clickedBoxResult.yPosition
       })
       setLines(currLines)
       setLineStart(null)
       drawLines()
+      setSelectedFrenchWord(null)
+      setSelectedEnglishWord(null)
       return
     }
   }
@@ -239,8 +321,15 @@ const Canvas = (props:CanvasProps) => {
 
       // Use Mouseout to temporarily reset canvas and states 
       canvas.addEventListener("mouseout", function (e) {
-        reset()
+        // reset()
       })
+      
+      const initialSelectedWordPairings:WordMapping = {}
+      Object.keys(wordsMapping).map(englishWord => {
+        initialSelectedWordPairings[englishWord] = null
+      })
+      console.log("initialSelectedWordPairings", initialSelectedWordPairings)
+      setSelectedWordPairings(initialSelectedWordPairings)
       drawWordBoxes()
     }
   }, [])
