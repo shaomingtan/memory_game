@@ -10,6 +10,8 @@ type WordMapping = {
 
 type CanvasProps = {
   wordsMapping: WordMapping
+  setSelectedWordPairings: Function
+  selectedWordPairings: WordMapping
 }
 
 type Position = {
@@ -38,7 +40,7 @@ type HasClickedBoxResult = false | {
 }
 
 const Canvas = (props:CanvasProps) => {
-  const { wordsMapping, ...rest } = props
+  const { wordsMapping, setSelectedWordPairings: _setSelectedWordPairings, selectedWordPairings: _selectedWordPairings } = props
   const canvasRef = useRef<HTMLCanvasElement>(null)
 
   // lineStart is used to track the start position of the current line
@@ -79,7 +81,6 @@ const Canvas = (props:CanvasProps) => {
     _setSelectedFrenchWord(word);
   }
 
-  const [_selectedWordPairings, _setSelectedWordPairings] = useState<WordMapping>({});
   const selectedWordPairingsRef = useRef(_selectedWordPairings)
   const setSelectedWordPairings = (wordPairing: WordMapping) => {
     selectedWordPairingsRef.current = wordPairing
@@ -175,14 +176,18 @@ const Canvas = (props:CanvasProps) => {
 
   // Active line is the current line where user is drawing and has yet to set the line end.
   // This function draws an active line on the canvas to give the user an idea of how the line looks like.
-  const drawActiveLine = (x:number, y:number) => {
+  const drawActiveLine = (e:MouseEvent) => {
+    const x = e.clientX
+    const y = e.clientY
     if (lineStartRef.current) {
       setLineEnd({x,y})
       drawLines()
     }
   }
 
-  const handleClick = (x:number, y:number) => {
+  const handleClick = (e:MouseEvent) => {
+    const x = e.clientX
+    const y = e.clientY
     const lineStart = lineStartRef.current
 
     const clickedBoxResult = hasClickedBox(x, y)
@@ -273,7 +278,15 @@ const Canvas = (props:CanvasProps) => {
     setLines([])
     setLineStart(null)
     setLineEnd(null)
+    setSelectedEnglishWord(null)
+    setSelectedFrenchWord(null)
     drawLines()
+
+    const initialSelectedWordPairings:WordMapping = {}
+    Object.keys(wordsMapping).map(englishWord => {
+      initialSelectedWordPairings[englishWord] = null
+    })
+    setSelectedWordPairings(initialSelectedWordPairings)
   }
 
   const drawLines = () => {
@@ -310,31 +323,20 @@ const Canvas = (props:CanvasProps) => {
   useEffect(() => {
     const canvas = canvasRef.current
     if (canvas) {  
-      canvas.addEventListener("mousemove", function (e) {
-        drawActiveLine(e.clientX,e.clientY)
-      }, false);
-
-      canvas.addEventListener("mouseup", function (e) {
-        console.log('up', e)
-        handleClick(e.clientX,e.clientY)
-      }, false);
-
-      // Use Mouseout to temporarily reset canvas and states 
-      canvas.addEventListener("mouseout", function (e) {
-        // reset()
-      })
-      
-      const initialSelectedWordPairings:WordMapping = {}
-      Object.keys(wordsMapping).map(englishWord => {
-        initialSelectedWordPairings[englishWord] = null
-      })
-      console.log("initialSelectedWordPairings", initialSelectedWordPairings)
-      setSelectedWordPairings(initialSelectedWordPairings)
+      reset()
+      canvas.addEventListener("mousemove", drawActiveLine, false);
+      canvas.addEventListener("mouseup", handleClick, false);
       drawWordBoxes()
+
+      // Unsub event listeners
+      return () => {
+        canvas.removeEventListener("mousemove", drawActiveLine)
+        canvas.removeEventListener("mouseup", handleClick)
+      }
     }
-  }, [])
+  }, [wordsMapping])
   
-  return <canvas className="Canvas" width="1000" height={canvasHeight} ref={canvasRef} {...props}/>
+  return <canvas className="Canvas" width="1000" height={canvasHeight} ref={canvasRef}/>
 }
 
 export default Canvas
