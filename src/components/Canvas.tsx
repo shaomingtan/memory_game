@@ -177,8 +177,12 @@ const Canvas = (props:CanvasProps) => {
   // Active line is the current line where user is drawing and has yet to set end of line.
   // This function draws an active line on the canvas to give the user an idea of how the line will look like.
   const drawActiveLine = (e:MouseEvent) => {
-    const x = e.clientX
-    const y = e.clientY
+    const canvas = canvasRef.current
+    if (!canvas) return
+
+    var rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left
+    const y = e.clientY - rect.top
     if (lineStartRef.current) {
       setLineEnd({x,y})
       drawLines()
@@ -195,6 +199,8 @@ const Canvas = (props:CanvasProps) => {
     // Reset canvas each time to prevent currently drawn line from cluttering the canvas
     ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height)
     ctx.beginPath()
+    ctx.lineWidth = 1
+    ctx.strokeStyle = '#d3d3d3'    
 
     // Draw all lines that are stored in the lines state
     const lines = linesRef.current
@@ -237,8 +243,12 @@ const Canvas = (props:CanvasProps) => {
   }
 
   const handleClick = (e:MouseEvent) => {
-    const x = e.clientX
-    const y = e.clientY
+    const canvas = canvasRef.current
+    if (!canvas) return
+
+    var rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left
+    const y = e.clientY - rect.top
     const lineStart = lineStartRef.current
 
     // Check if click was within a box containing an english or french word

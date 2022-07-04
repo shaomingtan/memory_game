@@ -1,9 +1,14 @@
 import { useState } from 'react'
 import shuffle from 'lodash.shuffle';
+import Button from '@mui/material/Button';
+import Box from '@mui/material/Box';
+import Grid from '@mui/material/Grid';
+
 
 import Canvas from './components/Canvas'
 
 import type { WordMapping } from './types'
+import { Typography } from '@mui/material';
 
 const CORRECT_WORDS_MAPPING:WordMapping = {
   "forest":	"forêt",
@@ -26,6 +31,7 @@ const App = () => {
   const [wordsMapping, setWordsMapping] = useState<WordMapping>({});
   const [renderCanvas, setRenderCanvas] = useState<Boolean>(false);
   const [gradeResult, setGradeResult] = useState<null | number>(null);
+  const [gameStart, setGameStart] = useState<Boolean>(false);
 
   const handleGoButton = () => {
     const shuffledWordMapping:WordMapping = {}
@@ -41,6 +47,7 @@ const App = () => {
     setWordsMapping(shuffledWordMapping)
     setRenderCanvas(true)
     setGradeResult(null)
+    setGameStart(true)
   }
 
   const handleGradeButton = () => {
@@ -55,20 +62,50 @@ const App = () => {
 
     const percentage = Math.round((count / Object.keys(CORRECT_WORDS_MAPPING).length)*100)
     setGradeResult(percentage)
+    setGameStart(false)
   }
-  return (
+
+  const renderTitleAndGo = () => (
     <>
-      {renderCanvas && 
-        <Canvas 
-          wordsMapping={wordsMapping} 
-          answer={answer}
-          setAnswer={setAnswer} 
-        />
+      {gradeResult === null ?
+        <Typography variant="h3" sx={{marginBottom: '1rem'}}>Welcome to the memory game!</Typography> 
+      :
+        <Typography variant="h3" sx={{marginBottom: '1rem'}}>Try again!</Typography>
       }
-      <div onClick={() => handleGradeButton()}>Grade</div>
-      <div onClick={() => handleGoButton()}>Go</div>
-      {gradeResult && <div>You got {gradeResult}% correct</div>}
+      <Button onClick={handleGoButton} variant="contained">Go</Button> 
     </>
+  )
+
+  const renderGrade = () => (
+    <>
+      <Typography variant="h3" sx={{marginBottom: '1rem'}}>Match the english words with the french words</Typography>
+      <Button onClick={handleGradeButton} variant="contained">Grade</Button>
+    </>
+  )
+
+  return (
+    <Box sx={{margin: '5rem'}}>
+      <Grid container>
+        <Grid item xs={12} sx={{textAlign:'center', marginBottom:"1rem"}}>
+          {!gameStart && renderTitleAndGo()}
+          {gameStart && renderGrade()}
+        </Grid>
+        <Grid item xs={12} sx={{textAlign:'center'}}>
+          {gradeResult !== null && 
+            <Typography variant="body1" sx={{marginBottom: '1rem'}}>You got {gradeResult}% correct</Typography> 
+          }
+        </Grid>
+        <Grid item xs={12} sx={{textAlign:'center'}}>
+          {renderCanvas && 
+            <Canvas 
+              wordsMapping={wordsMapping} 
+              answer={answer}
+              setAnswer={setAnswer} 
+            />
+          }
+        </Grid>
+      </Grid>
+    </Box>
   )
 }
 
