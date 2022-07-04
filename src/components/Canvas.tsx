@@ -1,48 +1,15 @@
-import React, { useRef, useEffect, useState } from 'react'
-import './Canvas.css';
+import { useRef, useEffect, useState } from 'react'
 
-const WORD_HEIGHT = 50
+import './Canvas.css';
+import { WordType } from '../types'
+
+import type { WordMapping, CanvasProps, Position, Line, WordTypes,  HasClickedBoxResult } from '../types'
+
+const WORD_BOX_HEIGHT = 50
 const BOX_WIDTH = 200
 
-type WordMapping = {
-  [name: string]: null | string
-}
-
-type CanvasProps = {
-  wordsMapping: WordMapping
-  setSelectedWordPairings: Function
-  selectedWordPairings: WordMapping
-}
-
-type Position = {
-  x: number
-  y: number
-}
-
-type Line = {
-  startX: number
-  startY: number
-  endX: number
-  endY: number
-}
-
-type WordTypes = 'english' | 'french'
-
-enum WordType {
-  ENGLISH= 'english',
-  FRENCH= 'french'
-}
-
-type HasClickedBoxResult = false | {
-  clickedBox: boolean
-  xPosition: number
-  yPosition: number
-  wordType: WordType
-  wordIndex: number
-}
-
 const Canvas = (props:CanvasProps) => {
-  const { wordsMapping, setSelectedWordPairings: _setSelectedWordPairings, selectedWordPairings: _selectedWordPairings } = props
+  const { wordsMapping, setAnswer: _setAnswer, answer: _answer } = props
   const canvasRef = useRef<HTMLCanvasElement>(null)
 
   // lineStart is used to track the start position of the current line
@@ -83,38 +50,49 @@ const Canvas = (props:CanvasProps) => {
     _setSelectedFrenchWord(word);
   }
 
-  const selectedWordPairingsRef = useRef(_selectedWordPairings)
-  const setSelectedWordPairings = (wordPairing: WordMapping) => {
-    selectedWordPairingsRef.current = wordPairing
-    _setSelectedWordPairings(wordPairing);
+  const answerRef = useRef(_answer)
+  const setAnswer = (answer: WordMapping) => {
+    answerRef.current = answer
+    _setAnswer(answer);
   }
 
-  const canvasHeight = Object.keys(wordsMapping).length * WORD_HEIGHT
+  const canvasHeight = Object.keys(wordsMapping).length * WORD_BOX_HEIGHT
 
-  const getEnglishWordByIndex = (index:number) => {
-    return Object.keys(wordsMapping)[index]
+  const getEnglishWordByIndex = (index:number):string => {
+    const result = Object.keys(wordsMapping)[index]
+    if (result) {
+      return result
+    } else {
+      throw new Error("English word index out of bound")
+    }
   }
 
-  const getFrenchWordByIndex = (index:number) => {
-    return Object.values(wordsMapping)[index]
+  const getFrenchWordByIndex = (index:number):string => {
+    const result = Object.values(wordsMapping)[index]
+    if (result) {
+      return result
+    } else {
+      throw new Error("French word index out of bound")
+    }
   }
 
-  const alreadySelected = (word: string, wordType: WordTypes) => {
-    const currentWordPairings = selectedWordPairingsRef.current    
+  // Check if word has already been selected as an answer
+  const isWordSelected = (word: string, wordType: WordTypes) => {
+    const currentAnswer = answerRef.current    
     // Check if english word has been selected
-    if (wordType === WordType.ENGLISH && currentWordPairings[word] !== null) {
+    if (wordType === WordType.ENGLISH && currentAnswer[word] !== null) {
       return true
     }
 
     // Check if french word has been selected
-    if (wordType === WordType.FRENCH && Object.values(currentWordPairings).includes(word)) {
+    if (wordType === WordType.FRENCH && Object.values(currentAnswer).includes(word)) {
       return true
     }
     return false
   }
 
-  // Check if mouse click is within a box region and returns the identifier of the box
-  const hasClickedBox = (x:number, y:number):HasClickedBoxResult => {
+  // Check if mouse click is within a box region and return the word and it's respective properties
+  const hasClickedWordBox = (x:number, y:number):HasClickedBoxResult => {
     const canvas = canvasRef.current
     if (!canvas) return false
 
@@ -124,28 +102,35 @@ const Canvas = (props:CanvasProps) => {
     let xPosition
     let yPosition
     let wordType
-    let wordIndex
     let clickedBox
-    // Check if a box has been clicked and identify it
+    let word
+
+    // Find index of the word that was clicked by calculating the y position of the click and the height of a word box
+    const wordIndex = Math.floor(y/WORD_BOX_HEIGHT)
+    yPosition = wordIndex*WORD_BOX_HEIGHT+WORD_BOX_HEIGHT/2
+
+    // Handle if english boxes was clicked
     if (x <= BOX_WIDTH) {
       xPosition = BOX_WIDTH
       wordType = WordType.ENGLISH
+      word = getEnglishWordByIndex(wordIndex)
+    // Handle if french boxes was clicked
     } else if (x >= ctx.canvas.width - BOX_WIDTH) {
       xPosition = ctx.canvas.width - BOX_WIDTH
       wordType = WordType.FRENCH
+      word = getFrenchWordByIndex(wordIndex)
+    // Handle if area between english and french box was clicked
     } else {
       return false
     }
 
-    wordIndex = Math.floor(y/WORD_HEIGHT)
-    yPosition = wordIndex*WORD_HEIGHT+WORD_HEIGHT/2
     clickedBox = true
     return {
       clickedBox,
       xPosition,
       yPosition,
       wordType,
-      wordIndex,
+      word,
     }
   }
 
@@ -156,42 +141,41 @@ const Canvas = (props:CanvasProps) => {
     const ctx = canvas.getContext('2d')
     if (!ctx) return
    
-    // Draw left side vertical lines
+    // Draw English vertical lines
     ctx.moveTo(BOX_WIDTH,0)
     ctx.lineTo(BOX_WIDTH,ctx.canvas.height)
     ctx.stroke()
 
-    // Draw right side vertical lines
+    // Draw French vertical lines
     ctx.moveTo(ctx.canvas.width-BOX_WIDTH,0)
     ctx.lineTo(ctx.canvas.width-BOX_WIDTH,ctx.canvas.height)
     ctx.stroke()
 
     for(let i=0; i<Object.keys(wordsMapping).length; i++){
-      const englishWord = Object.keys(wordsMapping)[i]
-      const frenchWord = wordsMapping[englishWord]
+      // const englishWord = Object.keys(wordsMapping)[i]
+      // const frenchWord = wordsMapping[englishWord]
+      const englishWord = getEnglishWordByIndex(i)
+      const frenchWord = getFrenchWordByIndex(i)
 
-      // Draw left side horizontal lines
-      const yPosition = WORD_HEIGHT*(i+1)
+      // Draw English horizontal line
+      const yPosition = WORD_BOX_HEIGHT*(i+1)
       ctx.moveTo(0,yPosition)
       ctx.lineTo(BOX_WIDTH,yPosition)
       ctx.stroke()
       // Set english word
-      ctx.fillText(englishWord, BOX_WIDTH/2, yPosition-WORD_HEIGHT/2);
+      ctx.fillText(englishWord, BOX_WIDTH/2, yPosition-WORD_BOX_HEIGHT/2);
 
-      // Draw right side horizontal lines
+      // Draw French horizontal line
       ctx.moveTo(ctx.canvas.width-BOX_WIDTH,yPosition)
       ctx.lineTo(ctx.canvas.width,yPosition)
       ctx.stroke()
       // Set french word
-      if (!frenchWord) {
-        throw new Error("French word missing")
-      }
-      ctx.fillText(frenchWord, ctx.canvas.width-BOX_WIDTH/2, yPosition-WORD_HEIGHT/2);
+      ctx.fillText(frenchWord, ctx.canvas.width-BOX_WIDTH/2, yPosition-WORD_BOX_HEIGHT/2);
     }
   }
 
-  // Active line is the current line where user is drawing and has yet to set the line end.
-  // This function draws an active line on the canvas to give the user an idea of how the line looks like.
+  // Active line is the current line where user is drawing and has yet to set end of line.
+  // This function draws an active line on the canvas to give the user an idea of how the line will look like.
   const drawActiveLine = (e:MouseEvent) => {
     const x = e.clientX
     const y = e.clientY
@@ -201,95 +185,106 @@ const Canvas = (props:CanvasProps) => {
     }
   }
 
+  const drawLines = () => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+
+    // Reset canvas each time to prevent currently drawn line from cluttering the canvas
+    ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height)
+    ctx.beginPath()
+
+    // Draw all lines that are stored in the lines state
+    const lines = linesRef.current
+    for (let i=0; i<lines.length;i++) {
+      const line = lines[i]
+      ctx.moveTo(line.startX,line.startY)
+      ctx.lineTo(line.endX,line.endY)
+      ctx.stroke()
+    }
+
+    // Check if there's an active line, if so, draw it on the canvas
+    const lineStart = lineStartRef.current
+    const lineEnd = lineEndRef.current
+    if (lineStart && lineEnd) {
+      ctx.moveTo(lineStart.x,lineStart.y)
+      ctx.lineTo(lineEnd.x,lineEnd.y)
+      ctx.stroke()
+    }
+    drawWordBoxes()
+  }
+
+  // Checks if word has been clicked and sets word
+  const checkAndSetWord = (word: string, wordType: WordTypes):boolean => {
+    if (
+      wordType === WordType.ENGLISH &&
+      !isWordSelected(word, WordType.ENGLISH)
+    ) {
+      setSelectedEnglishWord(word)
+    } else if (
+      wordType === WordType.FRENCH && 
+      !isWordSelected(word, WordType.FRENCH)
+    ) {
+      setSelectedFrenchWord(word)
+    } else {
+      // TODO return a meaningful response informing user that word has already been selected
+      console.log("word has already been selected")
+      return true
+    }
+    return false
+  }
+
   const handleClick = (e:MouseEvent) => {
     const x = e.clientX
     const y = e.clientY
     const lineStart = lineStartRef.current
 
-    const clickedBoxResult = hasClickedBox(x, y)
+    // Check if click was within a box containing an english or french word
+    const wordBox = hasClickedWordBox(x, y)
     // Dont handle if a box was not clicked
-    if (!clickedBoxResult) {
+    if (!wordBox) {
       return
     }
 
-    // This handles the case when a user just started drawing a line. Store the line start position
+    // Check if the word has already been clicked before
+    const clickedBefore = checkAndSetWord(wordBox.word, wordBox.wordType)
+    if (clickedBefore) {
+      return
+    }
+
+    // Handle scenario when user just started drawing a line
     if (!lineStart) {
-      if (clickedBoxResult.wordType === WordType.ENGLISH) {
-        const currentEnglishWord = getEnglishWordByIndex(clickedBoxResult.wordIndex)
-        if (currentEnglishWord && !alreadySelected(currentEnglishWord, WordType.ENGLISH)) {
-          setSelectedEnglishWord(currentEnglishWord)
-        } else {
-          return
-        }
-      } else if (clickedBoxResult.wordType === WordType.FRENCH) {
-        const currentFrenchWord = getFrenchWordByIndex(clickedBoxResult.wordIndex)
-        if (currentFrenchWord && !alreadySelected(currentFrenchWord, WordType.FRENCH)) {
-          setSelectedFrenchWord(currentFrenchWord)
-        } else {
-          return
-        }
-      }
-      setLineStart({x: clickedBoxResult.xPosition, y: clickedBoxResult.yPosition})
+      setLineStart({x: wordBox.xPosition, y: wordBox.yPosition})
       return
     }
 
-    // This handles the case when a user completed drawing a line. Store the newly completed line and draw the lines on the canvas
+    // Handle scenario when user completed drawing a line
     if (lineStart) {
-      // Validation: Handle scenario where user selected 2 english words
-      if (selectedEnglishWordRef.current && clickedBoxResult.wordType === WordType.ENGLISH) {
-        // TODO Show some meaningful prompt to the user that they should select a french word next
-        console.log("Debug: 2 english words were chosen")
-        return
-      }
+      const currentEnglishWord = selectedEnglishWordRef.current
+      const currentFrenchWord = selectedFrenchWordRef.current
+      const currentAnswer = answerRef.current
 
-      // Validation: Handle scenario where user selected 2 french words
-      if (selectedFrenchWordRef.current && clickedBoxResult.wordType === WordType.FRENCH) {
-        // TODO Show some meaningful prompt to the user that they should select an english word next
-        console.log("Debug: 2 french words were chosen")
-        return
-      }
-
-      // Get current selected english and french word
-      let currentEnglishWord
-      let currentFrenchWord
-      if (clickedBoxResult.wordType === WordType.FRENCH) {
-        currentEnglishWord = selectedEnglishWordRef.current
-        currentFrenchWord = getFrenchWordByIndex(clickedBoxResult.wordIndex)
-      } else {
-        currentEnglishWord = getEnglishWordByIndex(clickedBoxResult.wordIndex)
-        currentFrenchWord = selectedFrenchWordRef.current
-      }
-
-      const currentWordPairings = selectedWordPairingsRef.current
+      // Update answer
       if (currentEnglishWord && currentFrenchWord) {
-        // Validation: Handle scenario where english word has already been selected
-        if (alreadySelected(currentEnglishWord, WordType.ENGLISH)) {
-          // TODO return a meaningful prompt to user
-          console.log("Debug: English word already selected")
-          return
-        }
-
-        // Validation: Handle scenario where selected french word has selected
-        if (alreadySelected(currentFrenchWord, WordType.FRENCH)) {
-          // TODO return a meaningful prompt to user
-          console.log("Debug: French word already selected")
-          return
-        }
-        currentWordPairings[currentEnglishWord] = currentFrenchWord
-        setSelectedWordPairings(currentWordPairings)
+        currentAnswer[currentEnglishWord] = currentFrenchWord
+        setAnswer(currentAnswer)
       }
 
-      // Draw pairing on canvas
+      // Draw newly selected words on canvas
       const currLines = linesRef.current
       currLines.push({
         startX: lineStart.x,
         startY: lineStart.y,
-        endX: clickedBoxResult.xPosition,
-        endY: clickedBoxResult.yPosition
+        endX: wordBox.xPosition,
+        endY: wordBox.yPosition
       })
       setLines(currLines)
       setLineStart(null)
       drawLines()
+
+      // Reset words state
       setSelectedFrenchWord(null)
       setSelectedEnglishWord(null)
       return
@@ -312,42 +307,12 @@ const Canvas = (props:CanvasProps) => {
     setSelectedFrenchWord(null)
     drawLines()
 
-    const initialSelectedWordPairings:WordMapping = {}
+    // Initialise answer with english words and empty french words
+    const initialAnswer:WordMapping = {}
     Object.keys(wordsMapping).map(englishWord => {
-      initialSelectedWordPairings[englishWord] = null
+      initialAnswer[englishWord] = null
     })
-    setSelectedWordPairings(initialSelectedWordPairings)
-  }
-
-  const drawLines = () => {
-    const canvas = canvasRef.current
-    if (!canvas) return
-
-    const ctx = canvas.getContext('2d')
-    if (!ctx) return
-
-    // Reset canvas each time to prevent active line from cluttering the canvas
-    ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height)
-    ctx.beginPath()
-
-    // Draw all lines that are stored in the lines state
-    const lines = linesRef.current
-    for (let i=0; i<lines.length;i++) {
-      const line = lines[i]
-      ctx.moveTo(line.startX,line.startY)
-      ctx.lineTo(line.endX,line.endY)
-      ctx.stroke()
-    }
-
-    // Check if there's an active line, if so, draw on the canvas
-    const lineStart = lineStartRef.current
-    const lineEnd = lineEndRef.current
-    if (lineStart && lineEnd) {
-      ctx.moveTo(lineStart.x,lineStart.y)
-      ctx.lineTo(lineEnd.x,lineEnd.y)
-      ctx.stroke()
-    }
-    drawWordBoxes()
+    setAnswer(initialAnswer)
   }
   
   useEffect(() => {

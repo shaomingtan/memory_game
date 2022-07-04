@@ -3,9 +3,7 @@ import shuffle from 'lodash.shuffle';
 
 import Canvas from './components/Canvas'
 
-type WordMapping = {
-  [name: string]: null | string
-}
+import type { WordMapping } from './types'
 
 const CORRECT_WORDS_MAPPING:WordMapping = {
   "forest":	"forêt",
@@ -24,13 +22,12 @@ const CORRECT_WORDS_MAPPING:WordMapping = {
 
 const App = () => {
 
-  const [selectedWordPairings, setSelectedWordPairings] = useState<WordMapping>({});
+  const [answer, setAnswer] = useState<WordMapping>({});
   const [wordsMapping, setWordsMapping] = useState<WordMapping>({});
   const [renderCanvas, setRenderCanvas] = useState<Boolean>(false);
-  const [gradeResult, setGradeResult] = useState<number>(0);
+  const [gradeResult, setGradeResult] = useState<null | number>(null);
 
   const handleGoButton = () => {
-    // Scramble wordsMapping
     const shuffledWordMapping:WordMapping = {}
     const shuffledFrenchWords = shuffle(Object.values(CORRECT_WORDS_MAPPING))
 
@@ -43,13 +40,13 @@ const App = () => {
     console.log("shuffledWordMapping", shuffledWordMapping)
     setWordsMapping(shuffledWordMapping)
     setRenderCanvas(true)
-    setGradeResult(0)
+    setGradeResult(null)
   }
 
   const handleGradeButton = () => {
     let count = 0
-    Object.keys(selectedWordPairings).map(englishWord => {
-      const frenchAnswer = selectedWordPairings[englishWord]
+    Object.keys(answer).map(englishWord => {
+      const frenchAnswer = answer[englishWord]
       const isCorrect = CORRECT_WORDS_MAPPING[englishWord] === frenchAnswer
       if (isCorrect) {
         count+= 1
@@ -64,8 +61,8 @@ const App = () => {
       {renderCanvas && 
         <Canvas 
           wordsMapping={wordsMapping} 
-          selectedWordPairings={selectedWordPairings}
-          setSelectedWordPairings={setSelectedWordPairings} 
+          answer={answer}
+          setAnswer={setAnswer} 
         />
       }
       <div onClick={() => handleGradeButton()}>Grade</div>
